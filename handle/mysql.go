@@ -25,11 +25,14 @@ const (
 
 func InitDB(db_s, db_l string) error {
 	var (
-		cnns = fmt.Sprintf(dsnTmp, db_s)
-		cnnl = fmt.Sprintf(dsnTmp, db_l)
+		ss = strings.Trim(db_s, "")
+		ll = strings.Trim(db_l, "")
+		// connection
+		cnns = fmt.Sprintf(dsnTmp, ss)
+		cnnl = fmt.Sprintf(dsnTmp, ll)
 	)
 
-	if db_s == "" || db_l == "" {
+	if ss == "" || ll == "" {
 		// 从配置文件读取数据库连接
 		if e := getDbConfig(); e == nil {
 			cnns = fmt.Sprintf(dsnTmpCfg,
