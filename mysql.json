@@ -1,0 +1,16 @@
+{
+    "dbs": {
+        "database": "kissbb",
+        "port": 3306,
+        "host": "127.0.0.2",
+        "user": "root",
+        "password": "123456"
+    },
+    "dbl": {
+        "database": "kissbb",
+        "port": 3306,
+        "host": "127.0.0.1",
+        "user": "root",
+        "password": "123456"
+    }
+}
