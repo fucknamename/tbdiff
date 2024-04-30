@@ -2,6 +2,9 @@ package handle
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
+	"strings"
 	"tbdiff/utils"
 )
 
@@ -108,4 +111,38 @@ func getDbName(source bool) string {
 		_ = GetL().Raw(sqlDatabase).Find(&dbname).Error
 	}
 	return dbname
+}
+
+// checkMySQLDump 检查系统是否安装了 mysqldump 命令
+func checkMySQLDump() bool {
+	var cmd *exec.Cmd
+	var windowsTip_c = "信息: 用提供的模式无法找到文件。"
+	var windowsTip_e = "INFO: Could not find files for the given pattern"
+
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("where", "mysqldump.exe")
+	} else if runtime.GOOS == "darwin" {
+		cmd = exec.Command("which", "mysqldump")
+	} else {
+		cmd = exec.Command("whereis", "mysqldump")
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+
+	cmdText := strings.TrimSpace(string(output))
+
+	if cmdText == "" ||
+		strings.Contains(cmdText, windowsTip_c) ||
+		strings.Contains(cmdText, windowsTip_e) {
+		return false
+	}
+
+	if strings.Contains(cmdText, "/") || strings.Contains(cmdText, "\\") {
+		return true
+	}
+
+	return false
 }

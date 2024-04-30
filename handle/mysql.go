@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	// link = "root:123456@tcp(172.0.0.1:3306)/ty"
+	// link = "root:123456@tcp(172.0.0.1:3306)/dbname"
 	dsnTmp    = "%s?charset=utf8mb4&parseTime=True&loc=Local"
 	dsnTmpCfg = "%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local"
 )
@@ -76,7 +76,7 @@ func getDbConfig() error {
 		lines []string
 	)
 
-	if lines, err = utils.ReadTxtLines("./mysql.json"); err != nil {
+	if lines, err = utils.ReadTxtLines("./db.json"); err != nil {
 		return err
 	}
 

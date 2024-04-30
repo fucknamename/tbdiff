@@ -1,10 +1,36 @@
 package handle
 
 import (
-	"bytes"
-	"fmt"
+	"errors"
 	"net/http"
+	"os/exec"
+	"strconv"
+	"strings"
+	"tbdiff/model"
+	"tbdiff/utils"
+	"time"
 )
+
+// 单个数据表备份
+func HandleBackUp(w http.ResponseWriter, r *http.Request, table string) {
+	if table == "" || table == "/" {
+		w.Write([]byte("please set the backup table name"))
+		return
+	}
+
+	if !checkMySQLDump() {
+		w.Write([]byte("mysqldump command not found"))
+		return
+	}
+
+	sql, err := backupFile(table, DbCfg.DBL) //这里备份的是：【要更新的数据库】中的表
+	if err != "" {
+		w.Write([]byte(err))
+		return
+	}
+
+	w.Write([]byte("backup table [" + table + "] success > " + sql))
+}
 
 // 表比较
 func HandleCompared(w http.ResponseWriter, r *http.Request, table string) {
@@ -16,13 +42,13 @@ func HandleCompared(w http.ResponseWriter, r *http.Request, table string) {
 	)
 
 	if count == 0 {
-		w.Write([]byte("源数据库未获取到数据表"))
+		w.Write([]byte("The source database no tables"))
 		return
 	}
 
-	if table == "" || table == "/" {
-		// 全表对比
+	if table == "" || table == "/" || table == "diff" {
 		// todo ...
+		w.Write([]byte("Full table comparison ... "))
 		return
 	}
 
@@ -34,11 +60,11 @@ func HandleCompared(w http.ResponseWriter, r *http.Request, table string) {
 	}
 
 	if ts == nil || ts.TABLE_NAME == "" {
-		w.Write([]byte(fmt.Sprintf("源数据库未找到表：%s ", table)))
+		w.Write([]byte("The source database didn't find table: " + table))
 		return
 	}
 
-	// 表结构比较，并生成sql语句
+	// 表比较
 	for _, v := range tbl {
 		if v.TABLE_NAME == table {
 			tl = v
@@ -46,34 +72,113 @@ func HandleCompared(w http.ResponseWriter, r *http.Request, table string) {
 		}
 	}
 
-	sql := getDiffColumn(table, dbs, dbl, ts, tl)
+	sql, err := getDiffColumn(table, dbs, dbl, ts, tl)
+	if err != nil {
+		w.Write([]byte("update table [" + table + "] faild"))
+		return
+	}
+
 	// go func(txt string) {
-	// 	// todo: write txt to sql file
+	// 	// todo: write txt to update sql file
 	// }(sql)
 
 	w.Write([]byte(sql))
 }
 
-func getDiffColumn(table, dbs, dbl string, ts, tl *databaseTables) string {
+func getDiffColumn(table, dbs, dbl string, ts, tl *databaseTables) (string, error) {
 	var (
-		sql bytes.Buffer
+		// sql bytes.Buffer
+		sql strings.Builder
 		// sCloumns, err = getColumns(true, dbs, []*databaseTables{ts})
 		add = tl == nil || tl.TABLE_NAME == "" // 目标库是否要添加表
 	)
 
 	if add {
-		// if err != nil {
-		// 	return ""
-		// }
+		output, tip := getTableStructAndData(table, DbCfg.DBS)
+		if tip != "" {
+			return "", errors.New(tip)
+		}
 
-		// // 遍历
-		// for _, v := range sCloumns {
-
-		// }
+		cmd := exec.Command("mysql",
+			"-u", DbCfg.DBL.User,
+			"-p"+DbCfg.DBL.Password,
+			"-h", DbCfg.DBL.Host,
+			"-P", strconv.Itoa(DbCfg.DBL.Port),
+			DbCfg.DBL.DataBase,
+		)
+		cmd.Stdin = strings.NewReader(output)
+		ot, err := cmd.Output()
+		return string(ot), err
 	}
 
 	// 1取建表语句
 	// 2逐行对比
 
-	return sql.String()
+	// if err != nil {
+	// 	return ""
+	// }
+
+	// // 遍历
+	// for _, v := range sCloumns {
+
+	// }
+
+	return sql.String(), nil
+}
+
+func backupFile(table string, db model.MysqlDb) (string, string) {
+	output, tip := getTableStructAndData(table, db)
+	if tip != "" {
+		return "", tip
+	}
+
+	// 包含建表语句、初始化数据
+	timetag := time.Now().Format("20060102150405")
+	sqlfile := `./sql/[bak_` + timetag + `].` + table + `.sql`
+	if err := utils.NewFileManager(sqlfile).WriteToFile([]byte(output)); err != nil {
+		return "", "failed to write backup sql file"
+	}
+
+	return sqlfile, ""
+}
+
+func getTableStructAndData(table string, mysqlcfg model.MysqlDb) (string, string) {
+	// mysqldump -u root -p123456 -h 127.0.0.1 -P 3306 ff_db kissme > kissme.sql
+	cmd := exec.Command("mysqldump",
+		"-u", mysqlcfg.User,
+		"-p"+mysqlcfg.Password,
+		"-h", mysqlcfg.Host,
+		"-P", strconv.Itoa(mysqlcfg.Port),
+		mysqlcfg.DataBase,
+		table)
+
+	output, err := cmd.Output()
+
+	// defer cmd.Process.Release()
+
+	if err == nil {
+		return string(output), ""
+	}
+
+	if e, ok := err.(*exec.ExitError); ok {
+		tip := string(e.Stderr)
+		if strings.Contains(tip, "caching_sha2_password") {
+			/*
+				[mysqld]
+				default_authentication_plugin=mysql_native_password
+			*/
+			return "", "please set mysql config file with :\n-------------------------------\n[mysqld]\ndefault_authentication_plugin=mysql_native_password"
+		} else {
+			return "", tip
+		}
+	} else {
+		return "", "backup table [" + table + "] faild"
+	}
+}
+
+func execSqlfile(sqlfile string) error {
+	// mysqlcfg := DbCfg.DBL // 要变更的数据库表
+	// cmd := exec.Command("mysqldump", "-u", mysqlcfg.User, "-p"+mysqlcfg.Password, "-h", mysqlcfg.Host, "-P", strconv.Itoa(mysqlcfg.Port), mysqlcfg.DataBase, table)
+
+	return nil
 }

@@ -23,12 +23,12 @@ func init() {
 
 func main() {
 	// 全量数据库（要参考的数据库）
-	db_s := flag.String("ds", "", "short of target database")
+	db_s := flag.String("ds", "", "short of target mysql database connection string")
 	// // 全量数据表（要参考的数据表）
 	// table_s := flag.String("ts", "", "shor of target table")
 
 	// 本地数据库（要更新的数据库）
-	db_l := flag.String("dl", "", "short of local database")
+	db_l := flag.String("dl", "", "short of local mysql database connection string")
 	// // 本地数据表（要更新的数据表）
 	// table_l := flag.String("tl", "", "shor of local table")
 	flag.Parse()
@@ -39,15 +39,28 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		if strings.Contains(path, "favicon.ico") {
+			http.NotFound(w, r)
+		} else {
+			w.Write([]byte("ok"))
+		}
 	})
-	mux.HandleFunc("/diff", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/diff/*", func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		parts := strings.Split(path, "/")
 		table := parts[len(parts)-1] // 取最后一个参数作为要对比的表名
 
 		handle.HandleCompared(w, r, table)
+	})
+	mux.HandleFunc("/backup/*", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/")
+		parts := strings.Split(path, "/")
+		table := parts[len(parts)-1] // 取最后一个参数作为要备份的表名
+
+		handle.HandleBackUp(w, r, table)
 	})
 
 	srv := &http.Server{

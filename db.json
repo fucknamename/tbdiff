@@ -1,13 +1,13 @@
 {
     "dbs": {
-        "database": "kissbb",
+        "database": "ff_db",
         "port": 3306,
-        "host": "127.0.0.2",
+        "host": "127.0.0.1",
         "user": "root",
         "password": "123456"
     },
     "dbl": {
-        "database": "kissbb",
+        "database": "hound",
         "port": 3306,
         "host": "127.0.0.1",
         "user": "root",

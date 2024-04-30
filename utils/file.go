@@ -3,8 +3,60 @@ package utils
 import (
 	"bufio"
 	"io"
+	"io/ioutil"
 	"os"
+	"sync"
 )
+
+// FileManager 结构体用于管理文件的读写操作
+type FileManager struct {
+	FileName string     // 文件名
+	Mutex    sync.Mutex // 互斥锁
+}
+
+// NewFileManager 创建一个新的 FileManager 实例
+func NewFileManager(filename string) *FileManager {
+	return &FileManager{FileName: filename}
+}
+
+// WriteToFile 将内容写入文件
+func (fm *FileManager) WriteToFile(data []byte) error {
+	fm.Mutex.Lock()
+	defer fm.Mutex.Unlock()
+
+	return ioutil.WriteFile(fm.FileName, data, 0644)
+}
+
+// AppendToFile 将内容追加到文件
+func (fm *FileManager) AppendToFile(data string) error {
+	fm.Mutex.Lock()
+	defer fm.Mutex.Unlock()
+
+	f, err := os.OpenFile(fm.FileName, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		return nil
+	}
+
+	defer f.Close()
+
+	writer := bufio.NewWriter(f)
+	defer writer.Flush()
+
+	_, err = writer.WriteString(data + "\n")
+	return err
+}
+
+// ReadFromFile 从文件中读取内容
+func (fm *FileManager) ReadFromFile() ([]byte, error) {
+	fm.Mutex.Lock()
+	defer fm.Mutex.Unlock()
+
+	if _, err := os.Stat(fm.FileName); os.IsNotExist(err) {
+		return nil, err //文件不存在
+	}
+
+	return os.ReadFile(fm.FileName)
+}
 
 // 如果目标目录不存在，创建目录
 func MakeDir(path string) error {
