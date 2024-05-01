@@ -11,6 +11,40 @@ import (
 	"time"
 )
 
+// 查看库的数据表
+func HandleShowTable(w http.ResponseWriter, r *http.Request, db string, comment bool) {
+	if db == "" || db == "/" {
+		w.Write([]byte("please set the database name"))
+		return
+	}
+	if db != "s" && db != "l" {
+		w.Write([]byte("database only s or l"))
+		return
+	}
+
+	var builder strings.Builder
+	var tables []*databaseTables
+
+	if db == "s" {
+		tables, _ = getDB_Tables(true) // 源库数据表
+	} else {
+		tables, _ = getDB_Tables(false) // 要更新的库数据表
+	}
+
+	var count = len(tables)
+	builder.WriteString("---------------------------tables---------------------------\n")
+
+	for i := 0; i < count; i++ {
+		if comment {
+			builder.WriteString("[" + tables[i].TABLE_NAME + "]" + tables[i].TABLE_COMMENT + "\n")
+		} else {
+			builder.WriteString(tables[i].TABLE_NAME + "\n")
+		}
+	}
+
+	w.Write([]byte(builder.String()))
+}
+
 // 单个数据表备份
 func HandleBackUp(w http.ResponseWriter, r *http.Request, table string) {
 	if table == "" || table == "/" {

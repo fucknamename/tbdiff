@@ -49,18 +49,30 @@ func main() {
 		}
 	})
 	mux.HandleFunc("/diff/*", func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/")
+		path := strings.Trim(r.URL.Path, "/")
 		parts := strings.Split(path, "/")
 		table := parts[len(parts)-1] // 取最后一个参数作为要对比的表名
 
 		handle.HandleCompared(w, r, table)
 	})
 	mux.HandleFunc("/backup/*", func(w http.ResponseWriter, r *http.Request) {
-		path := strings.TrimPrefix(r.URL.Path, "/")
+		path := strings.Trim(r.URL.Path, "/")
 		parts := strings.Split(path, "/")
 		table := parts[len(parts)-1] // 取最后一个参数作为要备份的表名
 
 		handle.HandleBackUp(w, r, table)
+	})
+	mux.HandleFunc("/table/*", func(w http.ResponseWriter, r *http.Request) {
+		path := strings.Trim(r.URL.Path, "/")
+		parts := strings.Split(path, "/")
+		count := len(parts)
+
+		db := ""
+		if count > 1 {
+			db = parts[1] // 取最第二个参数作为要查看的库
+		}
+
+		handle.HandleShowTable(w, r, db, count > 2)
 	})
 
 	srv := &http.Server{
